@@ -1,4 +1,5 @@
-"""Request-ID propagation and one structured access-log line per request."""
+"""Per-request context: request-ID propagation, one JSON access-log line,
+and Prometheus request metrics."""
 
 import logging
 import re
@@ -9,17 +10,16 @@ from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.logging_config import request_id_ctx
+from app.metrics import HTTP_LATENCY, HTTP_REQUESTS
 
 logger = logging.getLogger("civicpulse.access")
 
 # Only accept safe ids from clients, so nobody can inject junk into our logs.
 _VALID_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+_QUIET_PATHS = {"/health", "/ready", "/metrics"}  # probes: log at DEBUG only
 
 
-class RequestIdMiddleware:
-    """Pure ASGI middleware: reads X-Request-ID (or generates one), stores it
-    in a context variable for the logger, and echoes it on the response."""
-
+class RequestContextMiddleware:
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
@@ -46,13 +46,22 @@ class RequestIdMiddleware:
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
-            logger.info(
+            elapsed = time.perf_counter() - start
+            # Label by route template (/api/complaints/{complaint_id}), not the raw
+            # path, or every UUID would create a new metric series.
+            route = scope.get("route")
+            path = getattr(route, "path", "unmatched")
+            HTTP_REQUESTS.labels(scope["method"], path, str(status_code)).inc()
+            HTTP_LATENCY.labels(scope["method"], path).observe(elapsed)
+            level = logging.DEBUG if scope["path"] in _QUIET_PATHS else logging.INFO
+            logger.log(
+                level,
                 "request",
                 extra={
                     "method": scope["method"],
                     "path": scope["path"],
                     "status": status_code,
-                    "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+                    "duration_ms": round(elapsed * 1000, 2),
                 },
             )
             request_id_ctx.reset(token)

@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 10.0
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.2:1b"
+    simulated_failure_mode: Literal["none", "raise", "retryable", "malformed"] = "none"
 
     rate_limit_per_minute: int = 10
     stats_cache_ttl_seconds: int = 30
