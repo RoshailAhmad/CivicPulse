@@ -1,0 +1,5 @@
+rows before deleting postgres-0: 32
+rows after it was recreated:    32
+NAME              STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+data-postgres-0   Bound    pvc-69610195-922e-4f17-a90c-8553be046353   1Gi        RWO            local-path     <unset>                 7m45s
+redis-data        Bound    pvc-4deb8ae3-89f6-4aa8-b17c-942189582c24   256Mi      RWO            local-path     <unset>                 7m45s

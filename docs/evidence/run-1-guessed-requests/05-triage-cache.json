@@ -1,0 +1,34 @@
+{
+    "active_provider": "rules",
+    "recent": [
+        {
+            "provider": "rules",
+            "latency_ms": 0,
+            "fallback": false,
+            "cache_hit": true,
+            "error": null,
+            "at": "2026-09-25T21:59:26.140908+00:00"
+        },
+        {
+            "provider": "rules",
+            "latency_ms": 0,
+            "fallback": false,
+            "cache_hit": true,
+            "error": null,
+            "at": "2026-09-25T21:59:26.128988+00:00"
+        },
+        {
+            "provider": "rules",
+            "latency_ms": 2,
+            "fallback": false,
+            "cache_hit": false,
+            "error": null,
+            "at": "2026-09-25T21:59:26.108707+00:00"
+        }
+    ],
+    "triage_cache": {
+        "hits": 2,
+        "misses": 1,
+        "hit_rate": 0.667
+    }
+}

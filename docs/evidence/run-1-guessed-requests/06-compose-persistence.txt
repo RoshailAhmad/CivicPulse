@@ -1,0 +1,2 @@
+rows before down: 35
+rows after up:    35
