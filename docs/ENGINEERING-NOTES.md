@@ -1,8 +1,9 @@
 # Engineering notes
 
-File and line references point at this repository. Sections marked **(measure)** need
-numbers from our own runs, and section 8 is our own story; fill those in before
-submitting. Generic answers score zero, so every claim here points at a line.
+File and line references point at this repository. Measured numbers come from two runs
+of our evidence workflow ([`.github/workflows/evidence.yml`](../.github/workflows/evidence.yml)) on GitHub
+Actions runners; the raw outputs are in [`docs/evidence/run-1-guessed-requests/`](evidence/run-1-guessed-requests/)
+and [`docs/evidence/run-2-vpa-requests/`](evidence/run-2-vpa-requests/).
 
 ## 1. Three things that differ between a laptop and a CI runner
 
@@ -59,27 +60,42 @@ pins the deterministic fake, `SimulatedTriage` injects failures on demand
 injected so tests never sleep ([`backend/tests/conftest.py:62`](../backend/tests/conftest.py#L62)). The
 key test is [`backend/tests/test_complaints_api.py:20`](../backend/tests/test_complaints_api.py#L20).
 
-## 5. HPA lag **(measure)**
+## 5. HPA lag
 
-*(From `kubectl get hpa -w` and docs/evidence/hpa-scaling.png.)*
+Measured from [`hpa-watch.csv`](evidence/run-1-guessed-requests/hpa-watch.csv) (replicas and CPU every
+5 s) and the k6 load curve, same load profile in both runs: 30 s warm-up at 5 users,
+ramp to 40 users over 60 s, hold 3 min.
 
-- Offered load started rising at: **__ s**
-- First new replica **Ready** at: **__ s**
-- Lag: **__ s**
+| Seconds after test start | Run 1 (request 100m) | Run 2 (request 275m) |
+|---|---|---|
+| Offered load starts rising | 32 | 32 |
+| HPA sees CPU above the 60 % target and wants more pods | 46 | 71 |
+| First new pods exist | 62 | 87 |
+| All 10 replicas exist | 108 | 134 |
+| Load reaches its peak (40 users) | 91 | 91 |
 
-Where the time goes (confirm with your own timestamps):
-1. metrics-server scrapes pod CPU on an interval, and the HPA only sees averaged numbers;
-2. the HPA controller re-evaluates every 15 s by default;
-3. the new pod is scheduled, then its init container runs migrations and the seed
-   ([`k8s/base/backend.yaml:42`](../k8s/base/backend.yaml#L42));
-4. the startup probe passes, then the readiness probe must pass before the Service sends
-   it traffic ([`k8s/base/backend.yaml:102`](../k8s/base/backend.yaml#L102)).
+**Lag from load rising to the first extra pods: 30 s in run 1, 55 s in run 2.** Full
+capacity (10 pods) took 76 s and 102 s. Both runs served every request: 0 failed out of
+84,768 and 85,282, p95 latency 36 ms and 39 ms
+([`08-k6-summary.txt`](evidence/run-2-vpa-requests/08-k6-summary.txt)).
 
-What would reduce it: a faster start (run the seed as a one-off Job instead of on every
-pod start), a lower utilisation target or higher `minReplicas` before a known peak, and
-scaling on request rate instead of CPU. The lag is why autoscaling doesn't replace
-capacity planning: for the first __ seconds of a spike, only the pods already running
-serve it.
+Where the time went:
+1. **Metrics delay (about 14 s in run 1).** metrics-server reports averaged CPU and our
+   `kubectl get hpa -w` output only changes every ~15 s
+   ([`08-kubectl-get-hpa-w.txt`](evidence/run-1-guessed-requests/08-kubectl-get-hpa-w.txt)), so the HPA
+   always acts on slightly old numbers.
+2. **Utilisation has to cross the target.** In run 2 the same traffic is a smaller
+   percentage of a bigger request, so it took longer to reach 60 %: that alone added 25 s.
+3. **Pod start-up (about 16 s from decision to new pods, then more until Ready).** The new
+   pod runs its init container (migrations + seed,
+   [`k8s/base/backend.yaml:42`](../k8s/base/backend.yaml#L42)), then the startup and readiness probes must
+   pass ([`k8s/base/backend.yaml:105`](../k8s/base/backend.yaml#L105)) before the Service sends it traffic.
+4. **The HPA scales in steps** (2 → 4 → 8 → 10), re-evaluating each time.
+
+What would reduce it: run the seed as a one-off Job instead of in every pod's init
+container, scale on request rate rather than CPU, or raise `minReplicas` before a known
+peak. This is why autoscaling doesn't replace capacity planning: for the first 30 to 55
+seconds of a spike, only the pods already running carry it.
 
 ## 6. Why the VPA runs in Off mode
 
@@ -91,14 +107,30 @@ over one signal and the replica count and pod sizes swing. Recommender mode lets
 suggest numbers and a human applies them, which is common industry practice for exactly
 this reason.
 
-Our loop **(measure)**:
+Our loop, following the assignment's five steps:
 
-| | CPU request | Memory request |
-|---|---|---|
-| Our guess ([`k8s/base/backend.yaml:88`](../k8s/base/backend.yaml#L88)) | 100m | 128Mi |
-| VPA target | __ | __ |
-| VPA lower / upper bound | __ / __ | __ / __ |
-| After updating requests, HPA behaviour changed by | __ | |
+| | CPU request | Memory request | Evidence |
+|---|---|---|---|
+| 1. Our first guess | 100m | 128Mi | run 1 |
+| 3. VPA recommendation after the load test | target **271m** (lower 162m) | target **256Mi** | [`run-1/09-vpa.txt`](evidence/run-1-guessed-requests/09-vpa.txt) |
+| 4. What we set ([`k8s/base/backend.yaml:91`](../k8s/base/backend.yaml#L91)) | 275m | 256Mi | commit "set backend requests from the VPA recommendation" |
+| VPA recommendation after run 2 | target 410m | target 256Mi | [`run-2/09-vpa.txt`](evidence/run-2-vpa-requests/09-vpa.txt) |
+
+**5. What changed about HPA behaviour.** With the guessed 100m request, the pods ran at
+**210 to 344 %** of their request during the hold phase: the HPA hit its maximum of 10
+replicas and still showed triple the target, so the number told us nothing except "more".
+With 275m, the same traffic settled at **75 %** with 10 replicas: close to the 60 % target,
+so the utilisation figure became a real signal of how much headroom we have. The
+trade-off is sensitivity: scale-out started 25 s later (section 5), because the same CPU
+usage is a smaller share of a bigger request. The total CPU used was about the same in
+both runs (roughly 2 cores across 10 pods); what changed is that the scheduler now
+reserves what the pods really use instead of overcommitting the node.
+
+The upper bounds (68 and 120 cores) are huge because the recommender had only minutes of
+history; they shrink as it watches longer. The target rose again to 410m after run 2 because
+the pods now had more room to use CPU. We did not chase it: that loop, request goes up,
+usage goes up, recommendation goes up, is exactly why a human reviews the numbers instead of
+letting Auto mode apply them.
 
 ## 7. The internal network blocks outbound traffic. Where does the LLM call go?
 
@@ -111,14 +143,34 @@ container is on `edge` too: it needs internet to pull model weights and holds no
 data. Another defensible design would be an egress proxy as the only outbound path,
 which gives one place to allow-list `api.groq.com`.
 
-## 8. The failure **(our own story)**
+## 8. The failure
 
-*(Write this yourselves. Something that cost you more than an hour.)*
+**Symptom.** Running `docker compose up --build -d` on my laptop returned
+`request returned 500 Internal Server Error for API route and version
+…dockerDesktopLinuxEngine/_ping`, and every Docker command failed the same way, even
+`docker compose ps`.
 
-- **Symptom:**
-- **What we wrongly believed first:**
-- **The exact command or log line that told us the truth:**
-- **The fix:**
+**What I wrongly believed first.** At first I thought the issue was in our project or
+`compose.yaml`. Then I assumed Docker just needed a restart. Earlier I had even believed
+it was a PATH or installation problem, because `docker --version` wasn't recognised.
+
+**What told me the truth.** Opening the Docker Desktop window itself showed
+*"Virtualization support not detected"* and *"Engine stopped"*: the `docker` command was
+installed, but the engine could never start because CPU virtualization was disabled in the
+BIOS.
+
+**What I did next.** I tried GitHub Codespaces. The build worked, but the `migrate`
+container failed with `psycopg.errors.ConnectionTimeout` even though Postgres logged
+*"database system is ready to accept connections"*. A socket test showed `database`
+resolving to `172.19.0.3` but the TCP connection timing out, and loosening the network
+(`internal: false`) and the firewall rules didn't help: it was Codespaces' own networking.
+The final solution was running every live demo on GitHub Actions runners with
+[`evidence.yml`](../.github/workflows/evidence.yml), where Docker worked and everything passed.
+
+**What I learned.** The visible error isn't always the real problem, so debug layer by
+layer: CLI, then engine, then virtualization, then BIOS. The same stack passing in CI was
+the proof that the problem was the environment, not our code. It was frustrating at first,
+but it made me check the environment before blaming the code.
 
 ## Other decisions we were asked to justify
 
@@ -143,14 +195,31 @@ cost of a little disk I/O.
 `compose.prod.yaml`, because production must run exactly the code baked into the tested,
 scanned image, never whatever happens to be on a disk.
 
-**Build context size (measure):** from the `transferring context` line of `docker build`.
+**Build context size**, Docker's own `transferring context` figure, measured on a working
+copy with `.venv` and `node_modules` present, as on a developer laptop
+([`run-2/01-build-context.txt`](evidence/run-2-vpa-requests/01-build-context.txt)):
 
 | Context | Without .dockerignore | With .dockerignore |
 |---|---|---|
-| backend | __ MB | __ kB |
-| frontend | __ MB | __ kB |
+| backend | 109.63 MB | 68.72 kB |
+| frontend | 123.70 MB | 233.56 kB |
 
-**Image sizes (measure):** `docker image ls`. Frontend final image: __ MB (target under
-~60 MB). Backend: __ MB.
+Without `.dockerignore`, every build would upload the virtualenv and `node_modules`
+(and risk copying a local `.env` into an image layer).
 
-**Triage cache hit rate (measure):** from `/api/meta/providers` after the demo: __ %.
+**Image sizes** ([`03-image-sizes.txt`](evidence/run-2-vpa-requests/03-image-sizes.txt)): frontend
+**58.6 MB** (under the ~60 MB target: nginx plus static files, no Node), backend 288 MB.
+
+**Triage cache hit rate:** three identical complaints gave 1 miss and 2 hits, a hit rate
+of **66.7 %** ([`05-triage-cache.json`](evidence/run-2-vpa-requests/05-triage-cache.json)): nine
+neighbours reporting one burst main cost one inference.
+
+**Other results from the evidence runs:**
+
+| Check | Result | File |
+|---|---|---|
+| Frontend → database | `ping: bad address 'database'` (backend → database OK) | [`04-network-isolation.txt`](evidence/run-2-vpa-requests/04-network-isolation.txt) |
+| `docker compose down` then `up` | 35 rows before, 35 after | [`06-compose-persistence.txt`](evidence/run-2-vpa-requests/06-compose-persistence.txt) |
+| Delete `postgres-0` | 32 rows before, 32 after, same PVC | [`10-k8s-persistence.txt`](evidence/run-2-vpa-requests/10-k8s-persistence.txt) |
+| Rolling update under load (10 users) | 0 failed of 5,881 requests | [`11-zero-downtime-k6.txt`](evidence/run-2-vpa-requests/11-zero-downtime-k6.txt) |
+| `kubectl rollout undo` and re-applying the overlay | both returned the backend to `civicpulse-backend:dev` | [`12-rollback.txt`](evidence/run-2-vpa-requests/12-rollback.txt) |
