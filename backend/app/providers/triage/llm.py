@@ -1,5 +1,6 @@
 """LLM triage over any OpenAI-compatible endpoint (Groq, or Ollama's /v1)."""
 
+import re
 from typing import Any
 
 import openai
@@ -27,6 +28,17 @@ priority "high" = risk to life, health or property, or many people affected
 (flooding, burst mains, live wires, sewage overflow). "low" = cosmetic or non-urgent."""
 
 
+# Phone numbers (e.g. 0300-1234567, +92 300 1234567) and email addresses are
+# removed before text leaves our infrastructure (docs/adr/0004). The model
+# doesn't need them to classify a burst pipe.
+_PHONE = re.compile(r"(?<!\w)(?:\+?92[\s-]?|0)3\d{2}[\s-]?\d{7}(?!\w)")
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+
+
+def redact_pii(value: str) -> str:
+    return _EMAIL.sub("[email]", _PHONE.sub("[phone]", value))
+
+
 def _neutralise(value: str) -> str:
     # The citizen cannot close our delimiter tag and start "new instructions".
     return value.replace("<", "(").replace(">", ")")
@@ -34,8 +46,8 @@ def _neutralise(value: str) -> str:
 
 def build_user_message(text: str, location: str) -> str:
     return (
-        f"<location>{_neutralise(location)}</location>\n"
-        f"<complaint>\n{_neutralise(text)}\n</complaint>"
+        f"<location>{_neutralise(redact_pii(location))}</location>\n"
+        f"<complaint>\n{_neutralise(redact_pii(text))}\n</complaint>"
     )
 
 
