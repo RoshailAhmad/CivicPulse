@@ -36,9 +36,16 @@ jobs:
       # ------------------------------------------------------------------
       - name: "A1 Build context size, with and without .dockerignore"
         run: |
-          ctx() { docker build --no-cache --progress=plain "$1" 2>&1 | grep -m1 'transferring context' || true; }
+          # Recreate a developer's working copy: a Python venv and node_modules,
+          # exactly the folders .dockerignore exists to keep out of the build.
+          python -m venv backend/.venv
+          backend/.venv/bin/pip install --quiet -r backend/requirements.txt
+          (cd frontend && npm ci --no-audit --no-fund > /dev/null)
+          # Docker's own number: send the context to a trivial build and read
+          # the last "transferring context" line BuildKit prints.
+          ctx() { printf 'FROM scratch\nCOPY . /ctx\n' | docker build --no-cache --progress=plain -f - "$1" 2>&1 | grep 'transferring context' | tail -1; }
           {
-            echo "## Build context size"
+            echo "## Build context size (working copy with .venv and node_modules present)"
             for d in backend frontend; do
               echo "--- $d WITH .dockerignore:";    ctx "$d"
               mv "$d/.dockerignore" "$d/.dockerignore.off"
@@ -46,7 +53,6 @@ jobs:
               mv "$d/.dockerignore.off" "$d/.dockerignore"
             done
           } | tee "$OUT/01-build-context.txt"
-          echo "(Note: node_modules and .venv don't exist in a fresh clone, so the 'without' numbers here are smaller than on a laptop.)" >> "$OUT/01-build-context.txt"
 
       - name: "A2 Start the stack with one command"
         run: |
@@ -129,13 +135,14 @@ jobs:
           kill "$rec_pid" || true   # recorder flushes every row, so nothing is lost
           kill "$watch_pid" || true
           sleep 2
-          cp load/hpa-watch.csv load/k6-results.csv "$OUT/"
+          cp load/hpa-watch.csv "$OUT/"
+          { echo "metric_name,timestamp,metric_value"; grep "^vus," load/k6-results.csv | cut -d, -f1-3; } > "$OUT/k6-vus.csv"
           python scripts/plot_hpa.py
           cp docs/evidence/hpa-scaling.png "$OUT/08-hpa-scaling.png"
 
       - name: "B4 VPA recommendation (recommender mode, updateMode Off)"
         run: |
-          echo "Requests we guessed: cpu 100m, memory 128Mi (k8s/base/backend.yaml)" | tee "$OUT/09-vpa.txt"
+          echo "Current requests: $(kubectl -n civicpulse get deploy backend -o jsonpath='{.spec.template.spec.containers[0].resources.requests}')" | tee "$OUT/09-vpa.txt"
           for i in $(seq 1 30); do
             kubectl -n civicpulse get vpa backend-vpa -o jsonpath='{.status.recommendation}' | grep -q containerRecommendations && break
             sleep 10
