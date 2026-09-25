@@ -77,6 +77,9 @@ class ComplaintRepository:
 
     def seed(self, rows: list[dict[str, Any]]) -> int:
         """Insert rows whose id is not already present. Returns how many were new."""
+        if self._session.get_bind().dialect.name == "postgresql":
+            # Pods seeding at the same moment wait for each other instead of racing.
+            self._session.execute(text("SELECT pg_advisory_xact_lock(7240002)"))
         inserted = 0
         for fields in rows:
             if self._session.get(ComplaintRow, fields["id"]) is None:
