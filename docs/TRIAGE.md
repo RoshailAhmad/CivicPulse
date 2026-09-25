@@ -50,13 +50,19 @@ in `backend/app/providers/triage/llm.py`:
 Tested by `test_prompt_injection_cannot_choose_the_category` and
 `test_user_message_neutralises_delimiters`.
 
-## Measurements **(fill in from your runs)**
+## Measurements
+
+From our evidence runs ([`docs/evidence/run-2-vpa-requests/`](evidence/run-2-vpa-requests/)), which used
+the `rules` provider so they are deterministic and need no API key:
 
 | What | Value | Where from |
 |---|---|---|
-| Groq model used | `llama-3.1-8b-instant` (check the console for current models) | `LLM_MODEL` |
-| Groq free-tier limits we saw | __ requests/min, __ tokens/min, date checked __ | console.groq.com limits page |
-| Typical LLM triage latency | __ ms | `/api/meta/providers` |
-| Rules triage latency | ~1 ms | `/api/meta/providers` |
-| Triage cache hit rate in our demo | __ % | `/api/meta/providers` → `triage_cache.hit_rate` |
-| Ollama (llama3.2:1b, CPU) latency and accuracy vs Groq | __ | Our own comparison on the seed data |
+| Rules triage latency | 0 to 2 ms | [`05-triage-cache.json`](evidence/run-2-vpa-requests/05-triage-cache.json) |
+| Triage cache, three identical complaints | 1 miss, 2 hits, **66.7 %** hit rate | same file |
+| Fallback path | proven on every CI run by `test_fallback_when_provider_always_raises` | `backend/tests/test_complaints_api.py` |
+| Groq model configured | `llama-3.1-8b-instant` (`LLM_MODEL`) | `k8s/base/configmap.yaml` |
+
+With a Groq key configured (`TRIAGE_PROVIDER=llm`), `/api/meta/providers` shows the live
+latency of each call and whether it fell back. We did not benchmark Groq against Ollama;
+that comparison, and the free-tier limits from the Groq console on the day we checked,
+are the next measurements to add here.
