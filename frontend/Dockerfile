@@ -13,6 +13,8 @@ COPY nginx/nginx.conf /etc/nginx/nginx.conf
 # from the environment. The same image works in Compose, Kubernetes or anywhere.
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
+# Pull in security fixes released since the base image was built (Trivy gate).
+RUN apk upgrade --no-cache
 RUN rm -f /etc/nginx/conf.d/default.conf \
  && chown -R nginx:nginx /etc/nginx/conf.d /var/cache/nginx /usr/share/nginx/html
 ENV BACKEND_URL=http://backend:8000
