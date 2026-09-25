@@ -1,0 +1,197 @@
+name: Evidence
+
+# Runs every live demo the rubric asks for on a GitHub runner and uploads the
+# results as one downloadable artifact. Triggered by pushing a branch named
+# evidence/<anything>, or by hand from the Actions tab once this is on main.
+on:
+  push:
+    branches: ["evidence/**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      OUT: evidence-output
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tools (k3d, kustomize, k6, matplotlib)
+        run: |
+          mkdir -p "$OUT"
+          curl -sSL -o k3d https://github.com/k3d-io/k3d/releases/download/v5.7.5/k3d-linux-amd64
+          chmod +x k3d && sudo mv k3d /usr/local/bin/
+          curl -sSL https://github.com/grafana/k6/releases/download/v0.55.0/k6-v0.55.0-linux-amd64.tar.gz | tar xz
+          sudo mv k6-v0.55.0-linux-amd64/k6 /usr/local/bin/
+          pip install --quiet matplotlib
+
+      # ------------------------------------------------------------------
+      # Part A: Docker Compose
+      # ------------------------------------------------------------------
+      - name: "A1 Build context size, with and without .dockerignore"
+        run: |
+          ctx() { docker build --no-cache --progress=plain "$1" 2>&1 | grep -m1 'transferring context' || true; }
+          {
+            echo "## Build context size"
+            for d in backend frontend; do
+              echo "--- $d WITH .dockerignore:";    ctx "$d"
+              mv "$d/.dockerignore" "$d/.dockerignore.off"
+              echo "--- $d WITHOUT .dockerignore:"; ctx "$d"
+              mv "$d/.dockerignore.off" "$d/.dockerignore"
+            done
+          } | tee "$OUT/01-build-context.txt"
+          echo "(Note: node_modules and .venv don't exist in a fresh clone, so the 'without' numbers here are smaller than on a laptop.)" >> "$OUT/01-build-context.txt"
+
+      - name: "A2 Start the stack with one command"
+        run: |
+          cp .env.example .env
+          docker compose up -d --build 2>&1 | tail -20 | tee "$OUT/02-compose-up.txt"
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8000/ready && break; sleep 3; done
+          echo | tee -a "$OUT/02-compose-up.txt"
+          docker compose ps | tee -a "$OUT/02-compose-up.txt"
+
+      - name: "A3 Image sizes"
+        run: docker image ls --format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}' | grep -E 'REPOSITORY|civicpulse' | tee "$OUT/03-image-sizes.txt"
+
+      - name: "A4 Network isolation: frontend must NOT reach the database"
+        run: |
+          {
+            echo '$ docker compose exec frontend ping -c 1 database'
+            if docker compose exec -T frontend ping -c 1 -W 2 database 2>&1; then
+              echo "UNEXPECTED: frontend reached the database"; exit 1
+            fi
+            echo
+            echo "=> FAILED as designed: the frontend has no route to the database."
+            echo
+            echo '$ docker compose exec backend python -c "...connect to database:5432..."'
+            docker compose exec -T backend python -c "import socket; socket.create_connection(('database', 5432), 3); print('backend -> database:5432 OK (backend is on both networks)')"
+          } 2>&1 | tee "$OUT/04-network-isolation.txt"
+
+      - name: "A5 Triage cache: duplicate complaints cost one inference"
+        run: |
+          body='{"text":"Burst water main flooding Street 12 since fajr, water entering ground floors","location":"Street 12, G-9/2"}'
+          for i in 1 2 3; do curl -fsS -X POST http://127.0.0.1:8080/api/complaints -H 'Content-Type: application/json' -d "$body" > /dev/null; done
+          curl -fsS http://127.0.0.1:8080/api/meta/providers | python -m json.tool | tee "$OUT/05-triage-cache.json"
+
+      - name: "A6 Persistence: docker compose down then up keeps every row"
+        run: |
+          count() { curl -fsS 'http://127.0.0.1:8000/api/complaints?page_size=1' | python -c "import sys,json; print(json.load(sys.stdin)['total'])"; }
+          before=$(count)
+          docker compose down
+          docker compose up -d
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8000/ready >/dev/null 2>&1 && break; sleep 3; done
+          after=$(count)
+          { echo "rows before down: $before"; echo "rows after up:    $after"; } | tee "$OUT/06-compose-persistence.txt"
+          test "$before" = "$after"
+          docker compose down -v
+
+      # ------------------------------------------------------------------
+      # Part B: Kubernetes (k3d)
+      # ------------------------------------------------------------------
+      - name: "B1 Create cluster and deploy the dev overlay"
+        run: |
+          k3d cluster create evidence --agents 1 -p "8081:80@loadbalancer" --wait --timeout 180s
+          docker build -q -t civicpulse-backend:dev backend
+          docker build -q -t civicpulse-frontend:dev frontend
+          k3d image import civicpulse-backend:dev civicpulse-frontend:dev -c evidence
+          base=https://raw.githubusercontent.com/kubernetes/autoscaler/vertical-pod-autoscaler-1.2.1/vertical-pod-autoscaler/deploy
+          kubectl apply -f "$base/vpa-v1-crd-gen.yaml"
+          kubectl apply -f "$base/vpa-rbac.yaml"
+          kubectl apply -f "$base/recommender-deployment.yaml"
+          kubectl apply -k k8s/overlays/dev
+          kubectl -n civicpulse rollout status statefulset/postgres --timeout=180s
+          kubectl -n civicpulse rollout status deployment/backend --timeout=300s
+          kubectl -n civicpulse rollout status deployment/frontend --timeout=180s
+          for i in $(seq 1 40); do curl -fsS http://127.0.0.1:8081/api/stats >/dev/null && break; sleep 3; done
+          kubectl -n civicpulse get pods,svc,ingress,hpa,vpa,pdb,pvc -o wide | tee "$OUT/07-k8s-deployed.txt"
+
+      - name: "B2 Wait for the HPA to see CPU metrics"
+        run: |
+          for i in $(seq 1 40); do
+            kubectl -n civicpulse get hpa backend-hpa | tee /dev/stderr | grep -q '<unknown>' || break
+            sleep 6
+          done
+
+      - name: "B3 HPA load test (k6) while recording replicas"
+        run: |
+          kubectl -n civicpulse get hpa backend-hpa -w > "$OUT/08-kubectl-get-hpa-w.txt" 2>&1 &
+          watch_pid=$!
+          python scripts/record_hpa.py > "$OUT/08-hpa-recorder.log" 2>&1 &
+          rec_pid=$!
+          k6 run --out csv=load/k6-results.csv load/k6-script.js 2>&1 | tail -40 | tee "$OUT/08-k6-summary.txt"
+          sleep 60   # capture the tail: replicas stay up (scale-down waits 300 s)
+          kill "$rec_pid" || true   # recorder flushes every row, so nothing is lost
+          kill "$watch_pid" || true
+          sleep 2
+          cp load/hpa-watch.csv load/k6-results.csv "$OUT/"
+          python scripts/plot_hpa.py
+          cp docs/evidence/hpa-scaling.png "$OUT/08-hpa-scaling.png"
+
+      - name: "B4 VPA recommendation (recommender mode, updateMode Off)"
+        run: |
+          echo "Requests we guessed: cpu 100m, memory 128Mi (k8s/base/backend.yaml)" | tee "$OUT/09-vpa.txt"
+          for i in $(seq 1 30); do
+            kubectl -n civicpulse get vpa backend-vpa -o jsonpath='{.status.recommendation}' | grep -q containerRecommendations && break
+            sleep 10
+          done
+          kubectl -n civicpulse describe vpa backend-vpa | tee -a "$OUT/09-vpa.txt"
+
+      - name: "B5 Persistence: delete the Postgres pod, rows survive"
+        run: |
+          count() { curl -fsS 'http://127.0.0.1:8081/api/complaints?page_size=1' | python -c "import sys,json; print(json.load(sys.stdin)['total'])"; }
+          before=$(count)
+          kubectl -n civicpulse delete pod postgres-0
+          kubectl -n civicpulse wait --for=condition=ready pod/postgres-0 --timeout=180s
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8081/api/stats >/dev/null 2>&1 && break; sleep 3; done
+          after=$(count)
+          { echo "rows before deleting postgres-0: $before"; echo "rows after it was recreated:    $after"; kubectl -n civicpulse get pvc; } | tee "$OUT/10-k8s-persistence.txt"
+          test "$before" = "$after"
+
+      - name: "B6 Zero-downtime rolling update under live load"
+        run: |
+          docker tag civicpulse-backend:dev civicpulse-backend:dev2
+          k3d image import civicpulse-backend:dev2 -c evidence
+          k6 run load/rollout-check.js > "$OUT/11-zero-downtime-k6.txt" 2>&1 &
+          k6_pid=$!
+          sleep 20
+          kubectl -n civicpulse set image deployment/backend backend=civicpulse-backend:dev2 | tee "$OUT/11-rollout.txt"
+          kubectl -n civicpulse rollout status deployment/backend --timeout=300s | tee -a "$OUT/11-rollout.txt"
+          set +e; wait "$k6_pid"; code=$?; set -e
+          echo "k6 exit code: $code (0 = zero failed requests)" | tee -a "$OUT/11-zero-downtime-k6.txt"
+          tail -30 "$OUT/11-zero-downtime-k6.txt"
+
+      - name: "B7 Rollback, both ways"
+        run: |
+          {
+            echo "## Rollout history"
+            kubectl -n civicpulse rollout history deployment/backend
+            echo "## 1) Fast, imperative: kubectl rollout undo"
+            kubectl -n civicpulse rollout undo deployment/backend
+            kubectl -n civicpulse rollout status deployment/backend --timeout=300s
+            echo "image now: $(kubectl -n civicpulse get deploy backend -o jsonpath='{.spec.template.spec.containers[0].image}')"
+            echo "## 2) Declarative: re-apply the overlay from Git"
+            kubectl -n civicpulse set image deployment/backend backend=civicpulse-backend:dev2
+            kubectl -n civicpulse rollout status deployment/backend --timeout=300s
+            kubectl apply -k k8s/overlays/dev
+            kubectl -n civicpulse rollout status deployment/backend --timeout=300s
+            echo "image now: $(kubectl -n civicpulse get deploy backend -o jsonpath='{.spec.template.spec.containers[0].image}')"
+          } 2>&1 | tee "$OUT/12-rollback.txt"
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          docker compose logs --no-color > "$OUT/zz-compose-logs.txt" 2>&1 || true
+          kubectl -n civicpulse get events --sort-by=.lastTimestamp > "$OUT/zz-k8s-events.txt" 2>&1 || true
+          kubectl -n civicpulse logs deploy/backend --all-containers --tail=200 > "$OUT/zz-backend-logs.txt" 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence
+          path: evidence-output
