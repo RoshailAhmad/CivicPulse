@@ -75,6 +75,21 @@ The Operations view shows the server's 409 message word for word when a status c
 isn't allowed. The Statistics view shows whether the numbers came from the Redis cache
 (`X-Cache: HIT`) or the database (`MISS`).
 
+## Measured results
+
+From the evidence workflow on GitHub Actions ([docs/evidence/](docs/evidence/)):
+
+| Check | Result |
+|---|---|
+| Frontend → database | `bad address 'database'`: no route, by design |
+| Rows after `docker compose down`/`up`, and after deleting `postgres-0` | unchanged (35 → 35, 32 → 32) |
+| HPA under a 40-user k6 load | 2 → 4 → 8 → 10 replicas, 0 failed of 85,282 requests, p95 39 ms |
+| Rolling update under load | 0 failed of 5,881 requests |
+| Frontend image | 58.6 MB (nginx + static files only) |
+| Build context with `.dockerignore` | backend 109.6 MB → 68.7 kB, frontend 123.7 MB → 233.6 kB |
+
+![Replicas vs offered load](docs/evidence/hpa-scaling-run2.png)
+
 ## API
 
 | Method | Path | Behaviour |
