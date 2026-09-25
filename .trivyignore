@@ -1,0 +1,3 @@
+# Vulnerabilities we have consciously accepted. Every entry needs a reason and a
+# review date; an unexplained ignore is just hiding a problem.
+# Format:  CVE-YYYY-NNNNN   # why it's acceptable, who decided, review by
