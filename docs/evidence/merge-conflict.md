@@ -10,11 +10,13 @@
 **Conflict markers (paste what Git showed):**
 
 ```
-(paste the <<<<<<< / ======= / >>>>>>> block here)
+   <<<<<<< docs/final-docs
+       "open manhole",
+   =======
+       "short circuit",
+   >>>>>>> dev
 ```
 
-**Resolution:** *(2 to 4 sentences, in your own words, on which version won and why.
-For example: we kept both words, because each describes a real danger that should jump
-the queue, and neither change made the other wrong.)*
+**Resolution:** *We kept both words. Short circuits and open manholes are both real dangers that should jump the queue, and neither change made the other wrong. Keeping one would have silently thrown away a partner's valid fix.*
 
 **Screenshot:** `merge-conflict.png` (the conflict on GitHub, before resolving).
