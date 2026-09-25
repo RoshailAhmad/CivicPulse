@@ -1,0 +1,576 @@
+/*
+  CivicPulse visual language: utility-marking paint.
+  City crews spray a colour code on the street before digging (blue = water,
+  red = electric, green = sewer). Each complaint category wears its utility
+  colour as a thick paint strip; everything else stays quiet slate and white.
+*/
+:root {
+  --ink: #1b2a3a;
+  --ink-soft: #4a5a6b;
+  --paper: #eef1f4;
+  --surface: #ffffff;
+  --rule: #cfd7df;
+  --focus: #1d6fd6;
+  --danger: #b3261e;
+
+  --water: #1d6fd6;
+  --electricity: #d6312b;
+  --sanitation: #2e8b4f;
+  --roads: #c2408c;
+  --streetlights: #d99a0b;
+  --other: #7d5ba6;
+
+  --font: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --radius-sm: 4px;
+  --radius-lg: 10px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e6ebf0;
+    --ink-soft: #a9b6c3;
+    --paper: #142130;
+    --surface: #1c2b3c;
+    --rule: #33465a;
+    --danger: #ff8a80;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin: 0 0 0.5rem;
+}
+
+h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 1.75rem 0 0.75rem;
+}
+
+p {
+  margin: 0 0 0.75rem;
+  max-width: 68ch;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.muted,
+.hint,
+.optional {
+  color: var(--ink-soft);
+}
+
+/* ---------- masthead ---------- */
+.masthead {
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+}
+
+.masthead__inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+/* The signature element: four paint dashes in utility colours. */
+.brand__marks {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.brand__marks i {
+  display: block;
+  width: 6px;
+  height: 22px;
+  border-radius: 2px;
+  transform: skewX(-12deg);
+}
+
+.brand__marks i:nth-child(1) { background: var(--water); }
+.brand__marks i:nth-child(2) { background: var(--electricity); }
+.brand__marks i:nth-child(3) { background: var(--sanitation); }
+.brand__marks i:nth-child(4) { background: var(--streetlights); }
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.nav-link {
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.nav-link[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* ---------- layout ---------- */
+.page {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+}
+
+.submit {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 820px) {
+  .submit {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- form ---------- */
+.lede {
+  color: var(--ink-soft);
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  width: 100%;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.7rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+[aria-invalid="true"] {
+  border-color: var(--danger);
+  border-width: 2px;
+}
+
+.hint,
+.field-error {
+  font-size: 0.875rem;
+  margin: 0.3rem 0 1.1rem;
+}
+
+.field-error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--ink-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--ink);
+  color: var(--surface);
+  border-color: var(--ink);
+  padding: 0.7rem 1.4rem;
+}
+
+.loading {
+  margin-top: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.notice {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  background: var(--paper);
+}
+
+.notice--error {
+  border-color: var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ---------- ticket (the triage result) ---------- */
+.ticket {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  border-top: 10px solid var(--mark, var(--rule));
+  padding: 1.25rem 1.5rem;
+  animation: ticket-in 280ms ease-out;
+}
+
+.ticket--empty {
+  border-style: dashed;
+  border-top-width: 1px;
+  color: var(--ink-soft);
+  animation: none;
+}
+
+.ticket h2 {
+  margin-top: 0;
+}
+
+.ticket dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.6rem 1rem;
+  margin: 0;
+}
+
+.ticket dt {
+  color: var(--ink-soft);
+}
+
+.ticket dd {
+  margin: 0;
+}
+
+.ref {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+@keyframes ticket-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticket { animation: none; }
+}
+
+/* ---------- category, priority, status ---------- */
+.ticket--water, .row--water, .category--water, .bar--water { --mark: var(--water); }
+.ticket--electricity, .row--electricity, .category--electricity, .bar--electricity { --mark: var(--electricity); }
+.ticket--sanitation, .row--sanitation, .category--sanitation, .bar--sanitation { --mark: var(--sanitation); }
+.ticket--roads, .row--roads, .category--roads, .bar--roads { --mark: var(--roads); }
+.ticket--streetlights, .row--streetlights, .category--streetlights, .bar--streetlights { --mark: var(--streetlights); }
+.ticket--other, .row--other, .category--other, .bar--other { --mark: var(--other); }
+
+.category {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.category__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--mark);
+  transform: skewX(-12deg);
+}
+
+.priority {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ink-soft);
+}
+
+.priority--high {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.priority--low {
+  border-style: dashed;
+  color: var(--ink-soft);
+}
+
+.status {
+  font-weight: 700;
+}
+
+.status--resolved { color: var(--sanitation); }
+.status--rejected { color: var(--ink-soft); text-decoration: line-through; }
+
+/* ---------- dashboard ---------- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.filters label {
+  flex: 1 1 12rem;
+  font-size: 0.9rem;
+}
+
+.filters select {
+  margin-top: 0.3rem;
+}
+
+.queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  border: 1px solid var(--rule);
+  border-left: 8px solid var(--mark);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem 1rem;
+}
+
+.row__summary {
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.row__status {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 0.5rem;
+  min-width: 15rem;
+}
+
+.row__action {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.row__action select {
+  width: auto;
+}
+
+.row__status .field-error {
+  margin: 0;
+  max-width: 22rem;
+  text-align: right;
+}
+
+@media (max-width: 700px) {
+  .row { grid-template-columns: 1fr; }
+  .row__status { justify-items: start; min-width: 0; }
+  .row__status .field-error { text-align: left; }
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+/* ---------- stats ---------- */
+.stats__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.stats__cache {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cache {
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--rule);
+}
+
+.cache--hit {
+  border-color: var(--sanitation);
+  color: var(--sanitation);
+}
+
+.total {
+  font-size: 1.1rem;
+  margin-top: 1rem;
+}
+
+.total strong {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-right: 0.3rem;
+}
+
+.bars {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: 8rem 1fr 3rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bar__track {
+  height: 18px;
+  background: var(--paper);
+  border-radius: 2px;
+}
+
+.bar__fill {
+  display: block;
+  height: 100%;
+  background: var(--mark);
+  border-radius: 2px;
+}
+
+.bar__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+.priority-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin: 0;
+}
+
+.priority-count dt {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.priority-count dd {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.priority-count--high dd {
+  color: var(--danger);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+caption {
+  text-align: left;
+  color: var(--ink-soft);
+  padding-bottom: 0.5rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+}
