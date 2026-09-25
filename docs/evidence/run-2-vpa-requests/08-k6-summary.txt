@@ -1,0 +1,40 @@
+default   [  98% ] 04/40 VUs  5m25.0s/5m30.0s
+
+running (5m26.0s), 03/40 VUs, 85208 complete and 0 interrupted iterations
+default   [  99% ] 03/40 VUs  5m26.0s/5m30.0s
+
+running (5m27.0s), 03/40 VUs, 85236 complete and 0 interrupted iterations
+default   [  99% ] 03/40 VUs  5m27.0s/5m30.0s
+
+running (5m28.0s), 02/40 VUs, 85256 complete and 0 interrupted iterations
+default   [  99% ] 02/40 VUs  5m28.0s/5m30.0s
+
+running (5m29.0s), 01/40 VUs, 85272 complete and 0 interrupted iterations
+default   [ 100% ] 01/40 VUs  5m29.0s/5m30.0s
+
+running (5m30.0s), 01/40 VUs, 85281 complete and 0 interrupted iterations
+default   [ 100% ] 01/40 VUs  5m30.0s/5m30.0s
+
+     ✓ status is 200
+
+     checks.........................: 100.00% 85282 out of 85282
+     data_received..................: 1.5 GB  4.4 MB/s
+     data_sent......................: 9.2 MB  28 kB/s
+     http_req_blocked...............: avg=6.62µs   min=1.45µs   med=4.53µs   max=3.48ms   p(90)=6.02µs   p(95)=7.42µs  
+     http_req_connecting............: avg=107ns    min=0s       med=0s       max=806.41µs p(90)=0s       p(95)=0s      
+     http_req_duration..............: avg=14.49ms  min=3.67ms   med=9.65ms   max=521.39ms p(90)=26.68ms  p(95)=38.8ms  
+       { expected_response:true }...: avg=14.49ms  min=3.67ms   med=9.65ms   max=521.39ms p(90)=26.68ms  p(95)=38.8ms  
+   ✓ http_req_failed................: 0.00%   0 out of 85282
+     http_req_receiving.............: avg=421.85µs min=16.73µs  med=102.76µs max=202.79ms p(90)=677.56µs p(95)=1.35ms  
+     http_req_sending...............: avg=17.04µs  min=3.77µs   med=11.3µs   max=3.63ms   p(90)=19.14µs  p(95)=28.42µs 
+     http_req_tls_handshaking.......: avg=0s       min=0s       med=0s       max=0s       p(90)=0s       p(95)=0s      
+     http_req_waiting...............: avg=14.05ms  min=3.61ms   med=9.35ms   max=521.24ms p(90)=25.76ms  p(95)=37.59ms 
+     http_reqs......................: 85282   258.4149/s
+     iteration_duration.............: avg=115.2ms  min=104.05ms med=110.32ms max=621.57ms p(90)=127.55ms p(95)=139.77ms
+     iterations.....................: 85282   258.4149/s
+     vus............................: 1       min=1              max=40
+     vus_max........................: 40      min=40             max=40
+
+
+running (5m30.0s), 00/40 VUs, 85282 complete and 0 interrupted iterations
+default ✓ [ 100% ] 00/40 VUs  5m30s

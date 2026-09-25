@@ -1,0 +1,29 @@
+NAME                           READY   STATUS    RESTARTS   AGE   IP           NODE                    NOMINATED NODE   READINESS GATES
+pod/backend-67b5789b88-jp768   1/1     Running   0          29s   10.42.0.7    k3d-evidence-agent-0    <none>           <none>
+pod/backend-67b5789b88-tddgl   1/1     Running   0          29s   10.42.1.6    k3d-evidence-server-0   <none>           <none>
+pod/frontend-97cbb6c6f-c7k9k   1/1     Running   0          29s   10.42.0.8    k3d-evidence-agent-0    <none>           <none>
+pod/frontend-97cbb6c6f-s7bc9   1/1     Running   0          29s   10.42.1.7    k3d-evidence-server-0   <none>           <none>
+pod/postgres-0                 1/1     Running   0          29s   10.42.0.10   k3d-evidence-agent-0    <none>           <none>
+pod/redis-84bd867864-4zt8d     1/1     Running   0          29s   10.42.1.9    k3d-evidence-server-0   <none>           <none>
+
+NAME               TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE   SELECTOR
+service/backend    ClusterIP   10.43.129.133   <none>        8000/TCP   29s   app.kubernetes.io/name=backend
+service/cache      ClusterIP   10.43.42.58     <none>        6379/TCP   29s   app.kubernetes.io/name=redis
+service/database   ClusterIP   10.43.167.209   <none>        5432/TCP   29s   app.kubernetes.io/name=postgres
+service/frontend   ClusterIP   10.43.177.250   <none>        80/TCP     29s   app.kubernetes.io/name=frontend
+
+NAME                                   CLASS     HOSTS   ADDRESS                 PORTS   AGE
+ingress.networking.k8s.io/civicpulse   traefik   *       172.18.0.2,172.18.0.3   80      29s
+
+NAME                                              REFERENCE            TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/backend-hpa   Deployment/backend   cpu: <unknown>/60%   2         10        2          29s
+
+NAME                                                   MODE   CPU   MEM   PROVIDED   AGE
+verticalpodautoscaler.autoscaling.k8s.io/backend-vpa   Off                           29s
+
+NAME                                     MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/backend-pdb   1               N/A               1                     29s
+
+NAME                                    STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE   VOLUMEMODE
+persistentvolumeclaim/data-postgres-0   Bound    pvc-0db1875f-2498-4ace-a870-e4daa1c261fe   1Gi        RWO            local-path     <unset>                 29s   Filesystem
+persistentvolumeclaim/redis-data        Bound    pvc-8c8a0692-87a1-4319-9bf1-6eaf8c3d27c3   256Mi      RWO            local-path     <unset>                 29s   Filesystem
