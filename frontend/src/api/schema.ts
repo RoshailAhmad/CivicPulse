@@ -213,7 +213,9 @@ export interface components {
             /** Active Provider */
             active_provider: string;
             /** Recent */
-            recent: Record<string, never>[];
+            recent: {
+                [key: string]: unknown;
+            }[];
             triage_cache: components["schemas"]["TriageCacheStats"];
         };
         /** StatsOut */
@@ -259,6 +261,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
         /** ValidationErrorBody */
         ValidationErrorBody: {

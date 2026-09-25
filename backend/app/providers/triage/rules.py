@@ -93,6 +93,7 @@ HIGH_WORDS = (
     "hospital",
     "school",
     "open manhole",
+    "short circuit",
 )
 LOW_WORDS = (
     "suggest",
