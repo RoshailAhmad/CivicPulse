@@ -92,6 +92,7 @@ HIGH_WORDS = (
     "whole night",
     "hospital",
     "school",
+    "open manhole",
     "short circuit",
 )
 LOW_WORDS = (
