@@ -84,9 +84,12 @@ spec:
               valueFrom:
                 secretKeyRef: { name: civicpulse-secrets, key: LLM_API_KEY, optional: true }
           # Without requests, the HPA has no denominator and shows <unknown>/60%.
+          # First guess was cpu 100m / memory 128Mi. Updated to the VPA
+          # recommendation from our load test (target cpu 271m, memory 256Mi):
+          # docs/evidence/run-1-guessed-requests/09-vpa.txt
           resources:
-            requests: { cpu: 100m, memory: 128Mi }
-            limits: { cpu: 500m, memory: 384Mi }
+            requests: { cpu: 275m, memory: 256Mi }
+            limits: { cpu: "1", memory: 512Mi }
           # Slow start is not failure: up to 30 x 2 s = 60 s to boot before
           # liveness is allowed to restart anything.
           startupProbe:
