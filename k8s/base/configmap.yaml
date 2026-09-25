@@ -1,0 +1,14 @@
+# Non-secret configuration. Secrets (passwords, API keys) live in secret.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: civicpulse-config
+data:
+  APP_ENV: prod
+  LOG_LEVEL: INFO
+  POSTGRES_DB: civicpulse
+  REDIS_URL: redis://cache:6379/0
+  TRIAGE_PROVIDER: llm
+  LLM_MODEL: llama-3.1-8b-instant
+  RATE_LIMIT_PER_MINUTE: "10"
+  BACKEND_URL: http://backend:8000
