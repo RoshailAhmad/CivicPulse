@@ -1,0 +1,23 @@
+# Production. Images are deployed by IMMUTABLE commit SHA, never :latest.
+# cd.yml runs `kustomize edit set image ...:<sha>` before applying; the tag
+# below is a placeholder so a hand-applied overlay fails loudly, not silently.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: civicpulse-backend
+    newName: ghcr.io/roshailahmad/civicpulse-backend
+    newTag: set-by-cd
+  - name: civicpulse-frontend
+    newName: ghcr.io/roshailahmad/civicpulse-frontend
+    newTag: set-by-cd
+patches:
+  # The real Secret is created from GitHub Secrets before deploy. Removing the
+  # placeholder here stops `kubectl apply` from overwriting it with "change-me".
+  - patch: |-
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: civicpulse-secrets
+      $patch: delete
