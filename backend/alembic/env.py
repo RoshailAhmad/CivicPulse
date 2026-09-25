@@ -1,6 +1,6 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from alembic import context
 from app.config import get_settings
@@ -31,6 +31,11 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        if connection.dialect.name == "postgresql":
+            # Every backend pod runs migrations in an initContainer. This lock makes
+            # them take turns, so two pods starting together can't race.
+            connection.execute(text("SELECT pg_advisory_lock(7240001)"))
+            connection.commit()
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()
