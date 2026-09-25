@@ -1,0 +1,24 @@
+# Local k3d cluster. Images are built on your laptop and imported with
+# `k3d image import` (see docs/RUNBOOK.md). Uses the placeholder Secret.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: civicpulse-backend
+    newName: civicpulse-backend
+    newTag: dev
+  - name: civicpulse-frontend
+    newName: civicpulse-frontend
+    newTag: dev
+patches:
+  - target:
+      kind: ConfigMap
+      name: civicpulse-config
+    patch: |-
+      - op: replace
+        path: /data/APP_ENV
+        value: dev
+      - op: replace
+        path: /data/TRIAGE_PROVIDER
+        value: rules

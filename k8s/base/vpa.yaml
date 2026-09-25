@@ -1,0 +1,17 @@
+# Recommender mode ONLY (updateMode "Off"): VPA suggests requests, a human
+# decides. In "Auto" it would fight the HPA, which scales on the same CPU signal.
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: backend-vpa
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: backend
+        controlledResources: ["cpu", "memory"]

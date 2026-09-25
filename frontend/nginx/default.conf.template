@@ -1,0 +1,37 @@
+# Keep the caller's X-Request-ID if it sent one, otherwise use nginx's own id.
+map $http_x_request_id $civic_request_id {
+    default $http_x_request_id;
+    ""      $request_id;
+}
+
+server {
+    listen 8080;
+    root /usr/share/nginx/html;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # The browser only ever calls /api on this same origin (no CORS needed).
+    # nginx forwards it to the backend; BACKEND_URL is filled in at start-up.
+    location /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Request-ID $civic_request_id;
+        # Overwrite (not append) so a client can't fake its IP to dodge the rate limiter.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_read_timeout 30s;
+    }
+
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location / {
+        try_files $uri /index.html;
+        add_header Cache-Control "no-cache";
+    }
+}
