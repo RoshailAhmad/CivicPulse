@@ -40,6 +40,4 @@ who needs zero exposure.
 
 ## Provider terms checked
 
-| Provider | Date checked | Link | Uses API inputs for training? |
-|---|---|---|---|
-| Groq | *(fill in)* | *(fill in)* | *(fill in from the page you read)* |
+| Groq | 28/09/2026 | https://groq.com/privacy | No. The page states that prompts and context sent through the API are not retained and that Groq does not train on customer data. |
