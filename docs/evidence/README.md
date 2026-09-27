@@ -15,8 +15,8 @@
 
 ## How these were produced
 
-Our laptops couldn't run Docker (CPU virtualization disabled in the BIOS; see
-ENGINEERING-NOTES.md, section 8), so every live demo runs in
+While Docker wasn't working on our laptops (Windows virtualization features were off;
+see ENGINEERING-NOTES.md, section 8), we ran every live demo in
 [`.github/workflows/evidence.yml`](../../.github/workflows/evidence.yml) on a GitHub Actions runner:
 Docker Compose, then a k3d cluster with metrics-server and the VPA recommender, a k6 load
 test, pod deletion, a rolling update under load and both rollbacks. Each run uploads its
