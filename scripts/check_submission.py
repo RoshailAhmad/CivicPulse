@@ -23,7 +23,10 @@ def check(ok: bool, message: str) -> None:
 
 def read(rel: str) -> str:
     path = ROOT / rel
-    return path.read_text(encoding="utf-8") if path.exists() else ""
+    if not path.is_file():
+        return ""
+    # errors="ignore": images and other binary files must not crash the check.
+    return path.read_text(encoding="utf-8", errors="ignore")
 
 
 def code(rel: str) -> str:
@@ -53,7 +56,7 @@ def main() -> int:
     key_pattern = re.compile(r"(gsk_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}|ghp_[A-Za-z0-9]{30,})")
     leaks = [
         f for f in files
-        if not f.endswith((".png", ".jpg", ".lock", "package-lock.json"))
+        if not f.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".lock", "package-lock.json"))
         and key_pattern.search(read(f))
     ]
     check(not leaks, f"no API keys or tokens in tracked files {leaks or ''}")
