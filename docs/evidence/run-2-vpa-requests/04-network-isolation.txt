@@ -1,0 +1,7 @@
+$ docker compose exec frontend ping -c 1 database
+ping: bad address 'database'
+
+=> FAILED as designed: the frontend has no route to the database.
+
+$ docker compose exec backend python -c "...connect to database:5432..."
+backend -> database:5432 OK (backend is on both networks)

@@ -1,0 +1,26 @@
+ Container civicpulse-cache-1  Starting
+ Container civicpulse-database-1  Starting
+ Container civicpulse-database-1  Started
+ Container civicpulse-database-1  Waiting
+ Container civicpulse-cache-1  Started
+ Container civicpulse-database-1  Healthy
+ Container civicpulse-migrate-1  Starting
+ Container civicpulse-migrate-1  Started
+ Container civicpulse-cache-1  Waiting
+ Container civicpulse-migrate-1  Waiting
+ Container civicpulse-database-1  Waiting
+ Container civicpulse-cache-1  Healthy
+ Container civicpulse-database-1  Healthy
+ Container civicpulse-migrate-1  Exited
+ Container civicpulse-backend-1  Starting
+ Container civicpulse-backend-1  Started
+ Container civicpulse-backend-1  Waiting
+ Container civicpulse-backend-1  Healthy
+ Container civicpulse-frontend-1  Starting
+ Container civicpulse-frontend-1  Started
+
+NAME                    IMAGE                     COMMAND                  SERVICE    CREATED          STATUS                                     PORTS
+civicpulse-backend-1    civicpulse-backend:dev    "uvicorn app.main:ap…"   backend    16 seconds ago   Up 6 seconds (healthy)                     0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+civicpulse-cache-1      redis:7.4.1-alpine        "docker-entrypoint.s…"   cache      16 seconds ago   Up 16 seconds (healthy)                    
+civicpulse-database-1   postgres:16.6-alpine      "docker-entrypoint.s…"   database   16 seconds ago   Up 16 seconds (healthy)                    
+civicpulse-frontend-1   civicpulse-frontend:dev   "/docker-entrypoint.…"   frontend   16 seconds ago   Up Less than a second (health: starting)   80/tcp, 0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
