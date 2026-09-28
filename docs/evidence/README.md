@@ -7,7 +7,7 @@
 | I: red pipeline blocks the merge, then green | `red-check.png`, `blocked-merge.png`, `green-check.png` (release PR #12) |
 | G: frontend can't reach the database | [`network-isolation.txt`](network-isolation.txt) |
 | H: `kubectl get hpa -w` during load | [`run-1-guessed-requests/08-kubectl-get-hpa-w.txt`](run-1-guessed-requests/08-kubectl-get-hpa-w.txt), [`run-2-vpa-requests/08-kubectl-get-hpa-w.txt`](run-2-vpa-requests/08-kubectl-get-hpa-w.txt) |
-| H: replicas vs offered load chart | `hpa-scaling-run1.png` (requests 100m), `hpa-scaling-run2.png` (requests 275m) |
+| H: replicas vs offered load chart | `hpa-scaling-run1.png` (requests 100m), `hpa-scaling-run2.png` (requests 275m), `hpa-scaling-local.png` (same test on our own laptop: 2 → 10 replicas; `kubectl get hpa -w` screenshot in `hpa-watch-local.png`) |
 | H: VPA recommendations | `run-1-guessed-requests/09-vpa.txt`, `run-2-vpa-requests/09-vpa.txt` |
 | Bonus: zero-downtime rolling update | `run-2-vpa-requests/11-zero-downtime-k6.txt` (0 failed of 5,881) |
 | Rollback, both ways | `run-2-vpa-requests/12-rollback.txt` |
