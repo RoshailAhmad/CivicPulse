@@ -15,19 +15,21 @@ and [`docs/evidence/run-2-vpa-requests/`](evidence/run-2-vpa-requests/).
 
 ## 2. Where our pipeline sits on the CI/CD maturity ladder
 
-*(Use the rung names from Lecture 03, slide 32.)* We are at **continuous delivery with
-automated deployment to an ephemeral environment**. Every PR runs lint, types, unit
+On the lecture's five-rung ladder (Manual deployment → Continuous Integration → Continuous Delivery → Continuous Deployment → Production-grade) we are on **rung 4, Continuous Deployment**, with most of rung 5's practices already in place. Every PR runs lint, types, unit
 tests, a Trivy scan, manifest validation and a Compose integration test
 ([`.github/workflows/ci.yml:171`](../.github/workflows/ci.yml#L171)). Every merge to `main` re-tests, publishes
 images by SHA and deploys them to a fresh k3d cluster with a smoke test through the
 Ingress ([`.github/workflows/cd.yml:110`](../.github/workflows/cd.yml#L110)).
 
-We are not at the next rung, **continuous deployment to a long-lived production
-environment with automated verification and rollback**: our cluster is thrown away after
-each run, and rollback is a human decision (docs/RUNBOOK.md, section 5). That rung would
-buy us GitOps (Argo CD reconciling the cluster from Git) and progressive delivery
-(canary + automatic rollback when error rate or latency crosses a threshold).
-
+Of rung 5's list (review, scan, staging, smoke test, approval, rollback, monitor) we
+already have review and approval (a required PR approval on `main`), scan (Trivy), smoke
+test (through the Ingress) and rollback (both methods, docs/RUNBOOK.md section 5). What we
+lack is **staging** and **monitoring**: our cluster is thrown away after each run, and
+`/metrics` is exposed but nothing scrapes it yet. The next rung, **rung 5,
+Production-grade**, would buy us a long-lived staging environment where the same
+SHA-tagged image is promoted to production only after passing there (build once, deploy
+the same artifact), and Prometheus/Grafana alerting on the metrics we already export, so
+a bad release is caught and rolled back from real signals instead of by chance.
 ## 3. The line that guarantees build-once-deploy-many
 
 [`.github/workflows/cd.yml:157`](../.github/workflows/cd.yml#L157): the deploy job points the prod
@@ -155,20 +157,22 @@ which gives one place to allow-list `api.groq.com`.
 it was a PATH or installation problem, because `docker --version` wasn't recognised.
 
 **What told me the truth.** Opening the Docker Desktop window itself showed
-*"Virtualization support not detected"* and *"Engine stopped"*: the `docker` command was
-installed, but the engine could never start because CPU virtualization was disabled in the
-BIOS.
+*"Virtualization support not detected"* and *"Engine stopped"*. I assumed virtualization
+was disabled in the BIOS, but Task Manager (Performance → CPU) showed **Virtualization:
+Enabled**. So the hardware was fine; Windows' own virtualization features were off.
+Enabling them fixed it: `dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all`,
+the same for `Microsoft-Windows-Subsystem-Linux`, `bcdedit /set hypervisorlaunchtype auto`,
+a restart and `wsl --update`. After that, Docker Desktop showed "Engine running".
 
-**What I did next.** I tried GitHub Codespaces. The build worked, but the `migrate`
-container failed with `psycopg.errors.ConnectionTimeout` even though Postgres logged
-*"database system is ready to accept connections"*. A socket test showed `database`
-resolving to `172.19.0.3` but the TCP connection timing out, and loosening the network
-(`internal: false`) and the firewall rules didn't help: it was Codespaces' own networking.
-The final solution was running every live demo on GitHub Actions runners with
-[`evidence.yml`](../.github/workflows/evidence.yml), where Docker worked and everything passed.
+**What I did while it was broken.** Before finding that, I tried GitHub Codespaces. The
+build worked, but the `migrate` container failed with `psycopg.errors.ConnectionTimeout`
+even though Postgres was "ready to accept connections"; a socket test showed `database`
+resolving to `172.19.0.3` but the connection timing out. So we ran the live demos on
+GitHub Actions runners with [`evidence.yml`](../.github/workflows/evidence.yml), where
+everything passed, and later confirmed the same stack running on my own laptop.
 
 **What I learned.** The visible error isn't always the real problem, so debug layer by
-layer: CLI, then engine, then virtualization, then BIOS. The same stack passing in CI was
+layer: CLI, then engine, then the OS features, then the hardware. The same stack passing in CI was
 the proof that the problem was the environment, not our code. It was frustrating at first,
 but it made me check the environment before blaming the code.
 
